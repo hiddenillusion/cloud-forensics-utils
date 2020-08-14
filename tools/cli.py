@@ -89,6 +89,7 @@ def AddParser(
                               'implemented for provider {1:s}'.format(
                                   func, provider))
   func_parser = provider_parser.add_parser(func, help=func_helper)
+
   if args:
     for argument, helper_text, default_value in args:
       kwargs = {'help': helper_text}  # type: Dict[str, Any]
@@ -97,8 +98,8 @@ def AddParser(
       else:
         kwargs['default'] = default_value
       func_parser.add_argument(argument, **kwargs)  # type: ignore
-  func_parser.set_defaults(func=PROVIDER_TO_FUNC[provider][func])
 
+  func_parser.set_defaults(func=PROVIDER_TO_FUNC[provider][func])
 
 def Main() -> None:
   """Main function for libcloudforensics CLI."""
@@ -277,6 +278,7 @@ def Main() -> None:
 
   # GCP parser options
   gcp_parser.add_argument('project', help='GCP project ID.')
+  gcp_parser.add_argument('--key_file', help='Path to credentials key file.')
   gcp_subparsers = gcp_parser.add_subparsers()
   AddParser('gcp', gcp_subparsers, 'listinstances',
             'List GCE instances in GCP project.')
@@ -310,12 +312,16 @@ def Main() -> None:
             ])
   AddParser('gcp', gcp_subparsers, 'querylogs', 'Query GCP logs.',
             args=[
+                ('--search_all', 'Search all available projects', False),
                 ('--filter', 'Query filter', None),
                 ('--start', 'Start date for query (2020-05-01T11:13:00Z)',
                  None),
                 ('--end', 'End date for query (2020-05-01T11:13:00Z)', None)
             ])
-  AddParser('gcp', gcp_subparsers, 'listlogs', 'List GCP logs for a project.')
+  AddParser('gcp', gcp_subparsers, 'listlogs', 'List GCP logs for a project.',
+            args=[
+                ('--search_all', 'Search all available projects', False)
+            ])
   AddParser('gcp', gcp_subparsers, 'listservices',
             'List active services for a project.')
   AddParser('gcp', gcp_subparsers, 'creatediskgcs', 'Creates GCE persistent '
@@ -349,7 +355,6 @@ def Main() -> None:
 
   if hasattr(parsed_args, 'func'):
     parsed_args.func(parsed_args)
-
 
 if __name__ == '__main__':
   Main()

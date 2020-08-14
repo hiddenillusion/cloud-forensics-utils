@@ -91,12 +91,11 @@ def ListLogs(args: 'argparse.Namespace') -> None:
   Args:
     args (argparse.Namespace): Arguments from ArgumentParser.
   """
-  logs = gcp_log.GoogleCloudLog(args.project)
+  logs = gcp_log.GoogleCloudLog(args.project, args.key_file, args.search_all)
   results = logs.ListLogs()
   logger.info('Found {0:d} available log types:'.format(len(results)))
   for line in results:
     logger.info(line)
-
 
 def QueryLogs(args: 'argparse.Namespace') -> None:
   """Query GCP logs.
@@ -107,7 +106,7 @@ def QueryLogs(args: 'argparse.Namespace') -> None:
   Raises:
     ValueError: If the start or end date is not properly formatted.
   """
-  logs = gcp_log.GoogleCloudLog(args.project)
+  logs = gcp_log.GoogleCloudLog(args.project, args.key_file, arg.serach_all)
 
   try:
     if args.start:
@@ -136,7 +135,6 @@ def QueryLogs(args: 'argparse.Namespace') -> None:
   logger.info('Found {0:d} log entries:'.format(len(results)))
   for line in results:
     logger.info(json.dumps(line))
-
 
 def CreateDiskFromGCSImage(args: 'argparse.Namespace') -> None:
   """Creates GCE persistent disk from image in GCS.

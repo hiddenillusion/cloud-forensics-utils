@@ -14,7 +14,7 @@
 # limitations under the License.
 """Google Cloud Logging functionalities."""
 
-from typing import TYPE_CHECKING, List, Dict, Any
+from typing import TYPE_CHECKING, List, Dict, Any, Optional
 
 from libcloudforensics.providers.gcp.internal import common
 
@@ -39,7 +39,7 @@ class GoogleCloudLog:
 
   LOGGING_API_VERSION = 'v2'
 
-  def __init__(self, project_id: str) -> None:
+  def __init__(self, project_id: str, key_file: Optional[str] = None, search_all: bool = False) -> None:
     """Initialize the GoogleCloudProject object.
 
     Args:
@@ -47,7 +47,10 @@ class GoogleCloudLog:
     """
 
     self.project_id = project_id
+    self.key_file = key_file
     self.gcl_api_client = None
+    self.search_all = search_all
+    self.projects = []
 
   def GclApi(self) -> 'googleapiclient.discovery.Resource':
     """Get a Google Compute Logging service object.
@@ -60,8 +63,14 @@ class GoogleCloudLog:
     if self.gcl_api_client:
       return self.gcl_api_client
     self.gcl_api_client = common.CreateService(
-        'logging', self.LOGGING_API_VERSION)
+        'logging', self.LOGGING_API_VERSION, self.key_file)
+
+    self.projects = []
+
     return self.gcl_api_client
+
+  def ListProjects(self) -> None:
+    self.projects = common.GetProjects(self.LOGGING_API_VERSION, self.key_file)
 
   def ListLogs(self) -> List[str]:
     """List logs in project.
@@ -74,13 +83,30 @@ class GoogleCloudLog:
     """
 
     logs = []
+    responses = []
+    project_ids = []
     gcl_instance_client = self.GclApi().logs()
-    responses = common.ExecuteRequest(
-        gcl_instance_client, 'list', {'parent': 'projects/' + self.project_id})
+
+    if self.search_all:
+      if not self.projects:
+        self.ListProjects()
+
+      for p in self.projects:
+        project_ids.append(p)
+    else:
+      project_ids = [self.project_id]
+
+    for project in self.projects:
+      if not project.get('lifecycleState') == 'ACTIVE':
+        continue
+
+      responses.append(common.ExecuteRequest(
+          gcl_instance_client, 'list', {'parent': 'projects/' + project.get('projectId')}))
 
     for response in responses:
-      for logtypes in response.get('logNames', []):
-        logs.append(logtypes)
+      for entry in response:
+        for logtypes in entry.get('logNames', []):
+          logs.append(logtypes)
 
     return logs
 

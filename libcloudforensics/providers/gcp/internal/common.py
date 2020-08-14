@@ -22,6 +22,7 @@ import time
 from typing import TYPE_CHECKING, Dict, List, Optional, Any
 
 from google.auth import default
+from google.oauth2 import service_account
 from google.auth.exceptions import DefaultCredentialsError, RefreshError
 from googleapiclient.discovery import build
 from libcloudforensics import logging_utils  # pylint: disable=ungrouped-imports
@@ -38,7 +39,6 @@ COMPUTE_NAME_LIMIT = 63
 STORAGE_LINK_URL = 'https://storage.cloud.google.com'
 logging_utils.SetUpLogger(__name__)
 logger = logging_utils.GetLogger(__name__)
-
 
 def GenerateDiskName(snapshot: 'compute.GoogleComputeSnapshot',
                      disk_name_prefix: Optional[str] = None) -> str:
@@ -107,9 +107,30 @@ def GenerateUniqueInstanceName(prefix: str,
   name = '{0:s}-{1:s}'.format(prefix[:truncate_at], timestamp)
   return name
 
+def GetProjects(api_version: str,
+                  key_file: Optional[str] = None) -> List[str]:
+    """
+    Returns:[
+    {'projectNumber': '12345', 'projectId': 'some-name', 'lifecycleState': 'ACTIVE', 'name': 'some- Project', 'createTime': '2017-04-11T20:53:20.318Z', 'parent': {'type': 'organization', 'id': '1234'}}
+    ]
+    """
+    projects = []
+
+    credentials = service_account.Credentials.from_service_account_file(key_file)
+    service = build('cloudresourcemanager', 'v1', credentials=credentials)
+
+    logger.info("Getting list of Projects")
+    request = service.projects().list()
+    response = request.execute()
+
+    for project in response.get('projects', []):
+      projects.append(project)
+
+    return projects
 
 def CreateService(service_name: str,
-                  api_version: str) -> 'googleapiclient.discovery.Resource':
+                  api_version: str,
+                  key_file: Optional[str] = None) -> 'googleapiclient.discovery.Resource':
   """Creates an GCP API service.
 
   Args:
@@ -123,15 +144,18 @@ def CreateService(service_name: str,
     RuntimeError: If Application Default Credentials could not be obtained or if
         service build times out.
   """
+  if key_file:
+    credentials = service_account.Credentials.from_service_account_file(key_file)
 
-  try:
-    credentials, _ = default()
-  except DefaultCredentialsError as error:
-    error_msg = (
-        'Could not get application default credentials: {0!s}\n'
-        'Have you run $ gcloud auth application-default '
-        'login?').format(error)
-    raise RuntimeError(error_msg)
+  else:
+    try:
+      credentials, _ = default()
+    except DefaultCredentialsError as error:
+      error_msg = (
+          'Could not get application default credentials: {0!s}\n'
+          'Have you run $ gcloud auth application-default '
+          'login?').format(error)
+      raise RuntimeError(error_msg)
 
   service_built = False
   for retry in range(RETRY_MAX):
@@ -272,6 +296,7 @@ def ExecuteRequest(client: 'googleapiclient.discovery.Resource',
           'Credentials. Try running: '
           '$ gcloud auth application-default login'.format(str(exception)))
       raise RuntimeError(error_msg)
+
     responses.append(response)
     next_token = response.get('nextPageToken')
     if not next_token:
