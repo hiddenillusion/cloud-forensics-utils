@@ -106,8 +106,10 @@ def QueryLogs(args: 'argparse.Namespace') -> None:
   Raises:
     ValueError: If the start or end date is not properly formatted.
   """
-  logs = gcp_log.GoogleCloudLog(args.project, args.key_file, arg.serach_all)
+  logs = gcp_log.GoogleCloudLog(args.project, args.key_file, args.search_all)
 
+  if args.search_all:
+    logger.info("Querying logs of all available projects")
   try:
     if args.start:
       datetime.strptime(args.start, '%Y-%m-%dT%H:%M:%SZ')
@@ -118,6 +120,10 @@ def QueryLogs(args: 'argparse.Namespace') -> None:
 
   qfilter = ''
 
+  #if args.limit:
+  #  qfilter += 'limit="{0:s}" '.format(args.limit)
+  #if args.freshness:
+  #  qfilter += 'freshness="{0:s}" '.format(args.freshness)
   if args.start:
     qfilter += 'timestamp>="{0:s}" '.format(args.start)
   if args.start and args.end:

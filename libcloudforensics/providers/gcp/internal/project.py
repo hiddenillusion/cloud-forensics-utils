@@ -26,7 +26,6 @@ import libcloudforensics.providers.gcp.internal.log as log_module
 import libcloudforensics.providers.gcp.internal.monitoring as monitoring_module
 import libcloudforensics.providers.gcp.internal.storage as storage_module
 
-
 class GoogleCloudProject:
   """Class representing a Google Cloud Project.
 

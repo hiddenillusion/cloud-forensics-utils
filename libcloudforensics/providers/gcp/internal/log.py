@@ -17,10 +17,13 @@
 from typing import TYPE_CHECKING, List, Dict, Any, Optional
 
 from libcloudforensics.providers.gcp.internal import common
+from libcloudforensics import logging_utils  # pylint: disable=ungrouped-imports
 
 if TYPE_CHECKING:
   import googleapiclient
 
+logging_utils.SetUpLogger(__name__)
+logger = logging_utils.GetLogger(__name__)
 
 class GoogleCloudLog:
   """Class representing a Google Cloud Logs interface.
@@ -111,7 +114,7 @@ class GoogleCloudLog:
     return logs
 
   def ExecuteQuery(self, qfilter: str) -> List[Dict[str, Any]]:
-    """Query logs in GCP project.
+    """Query logs in one or more GCP projects.
 
     Args:
       qfilter (str): The query filter to use.
@@ -124,19 +127,36 @@ class GoogleCloudLog:
       RuntimeError: If API call failed.
     """
 
-    body = {
-        'resourceNames': 'projects/' + self.project_id,
-        'filter': qfilter,
-        'orderBy': 'timestamp desc',
-    }
+    project_ids = []
+    if self.search_all:
+      if not self.projects:
+        self.ListProjects()
 
-    entries = []
-    gcl_instance_client = self.GclApi().entries()
-    responses = common.ExecuteRequest(
-        gcl_instance_client, 'list', {'body': body}, throttle=True)
+      for p in self.projects:
 
-    for response in responses:
-      for entry in response.get('entries', []):
-        entries.append(entry)
+        if not p.get('lifecycleState') == 'ACTIVE':
+          continue
+
+        project_ids.append('projects/{}'.format(p.get('projectId')))
+    else:
+      project_ids = ['projects/{}'.format(self.project_id)]
+
+    total_projects = len(project_ids)
+    logger.info("Projects being queried: {0:d}".format(total_projects))
+    for x in range(0, len(project_ids), 50):
+      body = {
+          'resourceNames': project_ids[x:x+50] ,
+          'filter': qfilter,
+          'orderBy': 'timestamp desc',
+      }
+
+      entries = []
+      gcl_instance_client = self.GclApi().entries()
+      responses = common.ExecuteRequest(
+          gcl_instance_client, 'list', {'body': body}, throttle=True)
+
+      for response in responses:
+        for entry in response.get('entries', []):
+          entries.append(entry)
 
     return entries
