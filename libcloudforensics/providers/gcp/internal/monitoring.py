@@ -15,7 +15,7 @@
 """Google Cloud Monitoring functionality."""
 
 import datetime
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Optional
 
 from libcloudforensics.providers.gcp.internal import common
 
@@ -34,7 +34,7 @@ class GoogleCloudMonitoring:
   """
   CLOUD_MONITORING_API_VERSION = 'v3'
 
-  def __init__(self, project_id: str) -> None:
+  def __init__(self, project_id: str, key_file: Optional[str] = None, search_all: bool = False) -> None:
     """Initialize the GoogleCloudMonitoring object.
 
     Args:
@@ -43,6 +43,8 @@ class GoogleCloudMonitoring:
 
     self.gcm_api_client = None
     self.project_id = project_id
+    self.key_file = key_file
+    self.search_all = search_all
 
   def GcmApi(self) -> 'googleapiclient.discovery.Resource':
     """Get a Google Cloud Monitoring service object.
@@ -54,7 +56,7 @@ class GoogleCloudMonitoring:
     if self.gcm_api_client:
       return self.gcm_api_client
     self.gcm_api_client = common.CreateService(
-        'monitoring', self.CLOUD_MONITORING_API_VERSION)
+        'monitoring', self.CLOUD_MONITORING_API_VERSION, self.key_file)
     return self.gcm_api_client
 
   def ActiveServices(self, timeframe: int = 30) -> Dict[str, int]:

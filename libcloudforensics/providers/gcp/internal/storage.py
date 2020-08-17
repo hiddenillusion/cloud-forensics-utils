@@ -47,7 +47,8 @@ class GoogleCloudStorage:
   """
   CLOUD_STORAGE_API_VERSION = 'v1'
 
-  def __init__(self, project_id: Optional[str] = None) -> None:
+  def __init__(self, project_id: Optional[str] = None, key_file: Optional[str] = None, search_all: bool = False) -> None:
+
     """Initialize the GoogleCloudStorage object.
 
     Args:
@@ -56,6 +57,9 @@ class GoogleCloudStorage:
 
     self.gcs_api_client = None
     self.project_id = project_id
+    self.projects = []
+    self.key_file = key_file
+    self.search_all = search_all
 
   def GcsApi(self) -> 'googleapiclient.discovery.Resource':
     """Get a Google Cloud Storage service object.
@@ -67,8 +71,42 @@ class GoogleCloudStorage:
     if self.gcs_api_client:
       return self.gcs_api_client
     self.gcs_api_client = common.CreateService(
-        'storage', self.CLOUD_STORAGE_API_VERSION)
+        'storage', self.CLOUD_STORAGE_API_VERSION, self.key_file)
     return self.gcs_api_client
+
+  def ListProjects(self) -> None:
+    return common.GetProjects(self.CLOUD_STORAGE_API_VERSION, self.key_file)
+
+  def GetBuckets(self) -> List[Dict[str, Any]]:
+    """List (with metadata) Google Cloud Storage buckets.
+
+    Returns:
+      List of Bucket Dicts
+    """
+    buckets = []
+    gcs_buckets = self.GcsApi().buckets()
+
+    if self.search_all:
+      if not self.projects:
+        projects = self.ListProjects()
+
+      for p in projects:
+        if not p.get('lifecycleState') == 'ACTIVE':
+          continue
+
+        self.projects.append(p.get('projectId'))
+    else:
+      self.projects = [self.project_id]
+
+    for project in self.projects:
+      request = gcs_buckets.list(project=project)
+      response = request.execute()
+
+      if response.get('items'):
+        for item in response.get('items'):
+          buckets.append(item)
+
+    return buckets
 
   def GetObjectMetadata(self,
                         gcs_path: str,

@@ -126,6 +126,10 @@ def GetProjects(api_version: str,
     for project in response.get('projects', []):
       projects.append(project)
 
+    if not len(projects):
+      raise("No Projects found")
+
+    logger.info("Found {0:d} Projects".format(len(projects)))  
     return projects
 
 def CreateService(service_name: str,
@@ -146,7 +150,6 @@ def CreateService(service_name: str,
   """
   if key_file:
     credentials = service_account.Credentials.from_service_account_file(key_file)
-
   else:
     try:
       credentials, _ = default()

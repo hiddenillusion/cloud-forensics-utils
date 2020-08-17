@@ -206,6 +206,20 @@ def ListServices(args: 'argparse.Namespace') -> None:
   for apiname, usage in sorted_apis:
     logger.info('{0:s}: {1:s}'.format(apiname, usage))
 
+def ListBuckets(args: 'argparse.Namespace') -> None:
+  """Retrieve the names of Google Cloud Storage buckets.
+
+  Args:
+    args (argparse.Namespace): Arguments from ArgumentParser.
+  """
+  gcs = gcp_storage.GoogleCloudStorage(args.project, args.key_file, args.search_all)
+  buckets = gcs.GetBuckets()
+  logger.info('Found {0:d} Buckets:'.format(len(buckets)))
+  cnt = 0
+  for bucket in buckets:
+    cnt += 1
+    logger.info('{0}/{1} - Name: {2:s}, : ID: {3:s}, ProjectID: {4:s}'.format(
+    cnt, len(buckets), bucket.get('id'), bucket.get('name'), bucket.get('projectNumber')))
 
 def GetBucketACLs(args: 'argparse.Namespace') -> None:
   """Retrieve the Access Controls for a GCS bucket.
