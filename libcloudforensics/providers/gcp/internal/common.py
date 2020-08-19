@@ -107,30 +107,121 @@ def GenerateUniqueInstanceName(prefix: str,
   name = '{0:s}-{1:s}'.format(prefix[:truncate_at], timestamp)
   return name
 
-def GetProjects(api_version: str,
-                  key_file: Optional[str] = None) -> List[str]:
-    """
-    Returns:[
-    {'projectNumber': '12345', 'projectId': 'some-name', 'lifecycleState': 'ACTIVE', 'name': 'some- Project', 'createTime': '2017-04-11T20:53:20.318Z', 'parent': {'type': 'organization', 'id': '1234'}}
-    ]
-    """
-    projects = []
+def GetHierarchy(key_file: Optional[str] = None) -> [Dict[str, any]]:
+  logger.debug("Building Hierarchy")
+  hierarchy = {}
 
-    credentials = service_account.Credentials.from_service_account_file(key_file)
-    service = build('cloudresourcemanager', 'v1', credentials=credentials)
+  organizations = GetOrganizations(key_file=key_file)
+  if not len(organizations) > 0:
+    root_projects = GetProjects(key_file=key_file)
+    if len(root_projects) > 0:
+      logger.info("Found {0:d} Projects within root node".format(
+        len(root_projects))
+      )
 
-    logger.info("Getting list of Projects")
-    request = service.projects().list()
-    response = request.execute()
+      return root_projects
+  else:
+    #Don't see a way to get a list of Folder ID's without first querying an organization
+    for organization in organizations:
+      org = '{0:s} ({1:s})'.format(organization.get('displayName'),
+                                    organization.get('organizationId'))
+      hierarchy[org] = {}
+      hierarchy[org]['projects'] = []
+      hierarchy[org]['folders'] = []
+      projects = GetProjects(key_file=key_file)
+      folders = GetFolders(parent_type='organizations',
+                            parent_id=organization.get('organizationId'),
+                            key_file=key_file)
 
-    for project in response.get('projects', []):
-      projects.append(project)
+      if len(projects) > 0:
+        for project in projects:
+          hierarchy[org]['projects'].append(project)
 
-    if not len(projects):
-      raise("No Projects found")
+      if len(folders) > 0:
+        for folder in folders:
+          hierarchy[org]['folders'].append(folder)
 
-    logger.info("Found {0:d} Projects".format(len(projects)))  
-    return projects
+  return hierarchy
+
+# change Optional for auth method
+def GetOrganizations(key_file: Optional[str] = None) -> List[Dict[str, Any]]:
+  organizations = []
+
+  credentials = service_account.Credentials.from_service_account_file(key_file)
+  service = build('cloudresourcemanager', 'v1beta1', credentials=credentials)
+
+  logger.debug("Getting list of Organizations")
+
+  request = service.organizations().list()
+  response = request.execute()
+
+  for organization in response.get('organizations', []):
+    organizations.append(organization)
+
+  logger.info("Found {0:d} Organization(s)".format(len(organizations)))
+  logger.info("\t{0:s} ({1:s})".format(organization.get('displayName'),
+                                    organization.get('organizationId')))
+  return organizations
+
+def WalkFolders(crm_service_request):
+  """
+  Since folders can have sub-folders
+  """
+  return crm_service_request.execute()
+
+# change Optional for auth method
+def GetFolders(parent_type: str,
+                parent_id: int,
+                key_file: Optional[str] = None) -> List[Dict[str, Any]]:
+  """
+  parent_type = folders OR organizations
+  """
+  folders = []
+
+  credentials = service_account.Credentials.from_service_account_file(key_file)
+  service = build('cloudresourcemanager', 'v2', credentials=credentials)
+
+  if parent_type == "folders":
+    parent = 'folders/{0:s}'.format(parent_id)
+  elif parent_type == "organizations":
+    parent = 'organizations/{0:s}'.format(parent_id)
+  else:
+    raise("Invalid parent type provided. Must be 'folders' or 'organizations'")
+
+  logger.debug("Getting list of Folders for {0:s}".format(parent))
+
+  request = service.folders().list(parent=parent)
+  response = WalkFolders(request)
+  for folder in response.get('folders', []):
+    folders.append(folder)
+    folder_name = folder.get('name').split('/')[1]
+    folder_parent_type, folder_parent_id = folder.get('parent').split('/')
+
+    if folder_parent_type == "folders":
+      GetFolders(parent_type='folders', parent_id=folder_parent_id, key_file=keyfile)
+
+  logger.info("Found {0:d} Folders".format(len(folders)))
+  return folders
+
+# change Optional for auth method
+def GetProjects(key_file: Optional[str] = None) -> List[Dict[str, Any]]:
+  projects = []
+
+  credentials = service_account.Credentials.from_service_account_file(key_file)
+  service = build('cloudresourcemanager', 'v1', credentials=credentials)
+
+  logger.debug("Getting list of Projects")
+  request = service.projects().list()
+  response = request.execute()
+
+  for project in response.get('projects', []):
+    projects.append(project)
+
+  if not len(projects):
+    raise("No Projects found")
+
+  logger.info("Found {0:d} Projects".format(len(projects)))
+  return projects
 
 def CreateService(service_name: str,
                   api_version: str,

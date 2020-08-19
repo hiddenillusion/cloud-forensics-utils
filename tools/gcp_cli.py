@@ -20,6 +20,7 @@ import sys
 from typing import TYPE_CHECKING
 
 # pylint: disable=line-too-long
+from libcloudforensics.providers.gcp.internal.common import GetHierarchy
 from libcloudforensics.providers.gcp.internal import log as gcp_log
 from libcloudforensics.providers.gcp.internal import monitoring as gcp_monitoring
 from libcloudforensics.providers.gcp.internal import project as gcp_project
@@ -34,6 +35,49 @@ logger = logging_utils.GetLogger(__name__)
 if TYPE_CHECKING:
   import argparse
 
+def ListHierarchy(args: 'argparse.Namespace') -> None:
+  """List GCP Hierarchy
+
+  Args:
+    args (argparse.Namespace): Arguments from ArgumentParser.
+  """
+  #keeping local for now
+  from treelib import Node, Tree
+
+  hierarchy = GetHierarchy(key_file=args.key_file)
+  tree = Tree()
+
+  # tag, node id, parent id
+  for org in hierarchy.keys():
+    org_name = org.split(' ')[0]
+    org_id = org.split(' ')[1].replace('(','').replace(')','')
+    tree.create_node(org_name, org_id)
+
+    for folder in hierarchy[org].get('folders'):
+      folder_id = folder.get('name').split('/')[1]
+      folder_name = 'F-{0:s} (Id:{1:s})'.format(folder.get('displayName'), folder_id)
+      folder_parent_type, folder_parent_id = folder.get('parent').split('/')
+
+      if folder_parent_type == "organizations":
+        tree.create_node(folder_name, folder_id, parent=org_id)
+      else:
+        tree.create_node(folder_name, folder_id, parent=folder_parent_id)
+
+    for project in hierarchy[org].get('projects'):
+      project_parent_type = project['parent']['type']
+      project_parent_id = project['parent']['id']
+
+      p = 'P-{0:s} (#:{1:s}, Id:{2:s})'.format(project.get('name'),
+                                              project.get('projectNumber'),
+                                              project.get('projectId'))
+
+      try:
+        tree.create_node(p, project.get('projectNumber'), parent=project_parent_id)
+      except Exception as err:
+        n = Node(p, project.get('projectId'))
+        tree.add_node(n, org_id)
+
+  print(tree.show())
 
 def ListInstances(args: 'argparse.Namespace') -> None:
   """List GCE instances in GCP project.

@@ -40,6 +40,7 @@ PROVIDER_TO_FUNC = {
         'querymetrics': az_cli.QueryMetrics
     },
     'gcp': {
+        'listhierarchy': gcp_cli.ListHierarchy,
         'copydisk': gcp_cli.CreateDiskCopy,
         'creatediskgcs': gcp_cli.CreateDiskFromGCSImage,
         'listbuckets': gcp_cli.ListBuckets,
@@ -352,6 +353,8 @@ def Main() -> None:
             args=[
                 ('--bucket_name', 'A specific GCS Bucket', None),
             ])
+  AddParser('gcp', gcp_subparsers, 'listhierarchy', 'List the hierarchy of all available GCP accounts.')
+
   if len(sys.argv) == 1:
     parser.print_help()
     sys.exit(1)
@@ -360,8 +363,6 @@ def Main() -> None:
 
   if hasattr(parsed_args, 'func'):
     parsed_args.func(parsed_args)
-  else:
-    print("failed")
 
 if __name__ == '__main__':
   Main()
