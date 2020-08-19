@@ -137,10 +137,18 @@ def QueryLogs(args: 'argparse.Namespace') -> None:
   elif args.filter:
     qfilter += args.filter
 
-  results = logs.ExecuteQuery(qfilter)
-  logger.info('Found {0:d} log entries:'.format(len(results)))
-  for line in results:
-    logger.info(json.dumps(line))
+  #results = logs.ExecuteQuery(qfilter)
+  #logger.info('Found {0:d} log entries:'.format(len(results)))
+  #for line in results:
+  #  logger.info(json.dumps(line))
+
+  filename = 'gcp_log_query-{0:s}.json'.format(datetime.utcnow().timestamp())
+  for result in logs.ExecuteQuery(qfilter):
+    with open(filename, 'a') as output_file:
+      json.dump(line, output_file)
+
+  logger.info("Saved logs to: {0:s}".format(filename))
+
 
 def CreateDiskFromGCSImage(args: 'argparse.Namespace') -> None:
   """Creates GCE persistent disk from image in GCS.

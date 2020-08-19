@@ -150,13 +150,10 @@ class GoogleCloudLog:
           'orderBy': 'timestamp desc',
       }
 
-      entries = []
       gcl_instance_client = self.GclApi().entries()
       responses = common.ExecuteRequest(
           gcl_instance_client, 'list', {'body': body}, throttle=True)
 
       for response in responses:
         for entry in response.get('entries', []):
-          entries.append(entry)
-
-    return entries
+          yield entry
