@@ -50,6 +50,7 @@ PROVIDER_TO_FUNC = {
         'querylogs': gcp_cli.QueryLogs,
         'startvm': gcp_cli.StartAnalysisVm,
         'bucketacls': gcp_cli.GetBucketACLs,
+        'bucketsize': gcp_cli.GetBucketSize,
         'objectmetadata': gcp_cli.GetGCSObjectMetadata,
         'listobjects': gcp_cli.ListBucketObjects
     }
@@ -347,7 +348,10 @@ def Main() -> None:
             args=[
                 ('path', 'Path to bucket.', None),
             ])
-
+  AddParser('gcp', gcp_subparsers, 'bucketsize', 'List the size of a GCS Bucket',
+            args=[
+                ('--bucket_name', 'A specific GCS Bucket', None),
+            ])
   if len(sys.argv) == 1:
     parser.print_help()
     sys.exit(1)

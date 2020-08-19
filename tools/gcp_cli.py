@@ -218,7 +218,7 @@ def ListBuckets(args: 'argparse.Namespace') -> None:
   cnt = 0
   for bucket in buckets:
     cnt += 1
-    logger.info('{0}/{1} - Name: {2:s}, : ID: {3:s}, ProjectID: {4:s}'.format(
+    logger.info('{0}/{1} - Name: {2:s}, ID: {3:s}, ProjectID: {4:s}'.format(
     cnt, len(buckets), bucket.get('id'), bucket.get('name'), bucket.get('projectNumber')))
 
 def GetBucketACLs(args: 'argparse.Namespace') -> None:
@@ -232,6 +232,18 @@ def GetBucketACLs(args: 'argparse.Namespace') -> None:
   for role in bucket_acls:
     logger.info('{0:s}: {1:s}'.format(role, ', '.join(bucket_acls[role])))
 
+def GetBucketSize(args: 'argparse.Namespace') -> None:
+  """Retrieve the size of a GCS bucket.
+
+  Args:
+    args (argparse.Namespace): Arguments from ArgumentParser.
+  """
+  buckets = gcp_monitoring.GoogleCloudMonitoring(args.project, args.key_file, args.search_all)
+  results = buckets.StorageSize(bucket_name=args.bucket_name)
+
+  sorted_buckets = sorted(results.items(), key=lambda x: x[1], reverse=True)
+  for _bucket_name, bucket_size in sorted_buckets:
+    logger.info('{0:s}: {1:d}'.format(_bucket_name, bucket_size))
 
 def GetGCSObjectMetadata(args: 'argparse.Namespace') -> None:
   """List the details of an object in a GCS bucket.

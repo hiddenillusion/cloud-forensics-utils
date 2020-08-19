@@ -97,3 +97,51 @@ class GoogleCloudMonitoring:
             if val:
               ret[service] = int(val)
     return ret
+
+  def StorageSize(self, timeframe: int = 1, bucket_name: str = None) -> Dict[str, int]:
+    """List the size of Google Storage Buckets in a project (default: last 1 days).
+
+    Ref: https://cloud.google.com/monitoring/api/metrics_gcp#gcp-storage
+
+    Args:
+      timeframe (int): Optional. The number (in days) for
+          which to measure activity.
+
+    Returns:
+      Dict[str, int]: Dictionary mapping bucket name to its size.
+    """
+
+    start_time = common.FormatRFC3339(
+        datetime.datetime.utcnow() - datetime.timedelta(days=timeframe))
+    end_time = common.FormatRFC3339(datetime.datetime.utcnow())
+    period = timeframe * 24 * 60 * 60
+
+    bucket = self.GcmApi()
+    gcm_timeseries_client = bucket.projects().timeSeries()
+    qfilter = 'metric.type="storage.googleapis.com/storage/total_bytes" resource.type="gcs_bucket"'
+
+    if bucket_name:
+      qfilter += ' resource.label.bucket_name="{0:s}"'.format(bucket_name)
+
+    responses = common.ExecuteRequest(gcm_timeseries_client, 'list', {
+        'name': 'projects/{0:s}'.format(self.project_id),
+        'filter': qfilter,
+        'interval_startTime': start_time,
+        'interval_endTime': end_time,
+        'aggregation_groupByFields': 'resource.label.bucket_name',
+        'aggregation_perSeriesAligner': 'ALIGN_SUM',
+        'aggregation_alignmentPeriod': '{0:d}s'.format(period),
+        'aggregation_crossSeriesReducer': 'REDUCE_SUM'
+    })
+
+    ret = {}
+    for response in responses:
+      for ts in response.get('timeSeries', []):
+        bucket = ts.get('resource', {}).get('labels', {}).get('bucket_name', '')
+        if bucket:
+          points = ts.get('points', [])
+          if points:
+            val = points[0].get('value', {}).get('doubleValue', '')
+            if val:
+              ret[bucket] = int(val)
+    return ret
